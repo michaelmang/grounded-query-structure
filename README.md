@@ -17,8 +17,10 @@ fuller retrieval pipeline.
 pip install 'grounded-query-structure[openai]'
 ```
 
-Python 3.11 or newer is required. The core package has no runtime dependencies;
-the `openai` extra adds `httpx` for Chat Completions.
+Python 3.11 or newer is required. Runtime depends on
+[`grounded-stopwords`](https://github.com/michaelmang/grounded-stopwords) so
+topic-map token overlap ignores modern + early-modern stopwords
+(`of` / `the` / `hath` / …). The `openai` extra adds `httpx` for Chat Completions.
 
 ## Five-minute example
 

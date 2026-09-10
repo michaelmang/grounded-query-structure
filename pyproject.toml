@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "grounded-query-structure"
-version = "0.2.0"
+version = "0.2.1"
 description = "Topic-map match + bounded LLM query expansion for hybrid search; never retrieves or answers."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -17,7 +17,9 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
 ]
-dependencies = []
+dependencies = [
+  "grounded-stopwords>=0.1.0",
+]
 
 [project.optional-dependencies]
 openai = ["httpx>=0.27,<1"]

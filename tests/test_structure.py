@@ -70,6 +70,31 @@ class StructureTests(unittest.TestCase):
         self.assertEqual(matches[0].id, "cult_of_saints")
         self.assertGreater(matches[0].score, 0.9)
 
+    def test_topic_map_ignores_of_the_stopword_overlap(self) -> None:
+        """Ordinary questions must not match 'X of the Y' labels via of/the alone."""
+        topic_map = TopicMap(
+            [
+                TopicEntry(
+                    id="cult_of_saints",
+                    labels=(
+                        "cult of the saints",
+                        "honor of the saints",
+                        "relics of the saints",
+                    ),
+                    core_concepts=("veneration of the martyrs",),
+                ),
+                TopicEntry(
+                    id="monoepiscopacy",
+                    labels=("monoepiscopacy", "one bishop", "authority of the bishop"),
+                    core_concepts=("one bishop", "authority of the bishop"),
+                ),
+            ]
+        )
+        matches = topic_map.match("Did Tertullian submit to the bishop of Rome?")
+        ids = {match.id for match in matches}
+        self.assertIn("monoepiscopacy", ids)
+        self.assertNotIn("cult_of_saints", ids)
+
     def test_heuristic_copies_map_fields(self) -> None:
         result = HeuristicStructurer().structure(
             "What did they say about the cult of the saints?",

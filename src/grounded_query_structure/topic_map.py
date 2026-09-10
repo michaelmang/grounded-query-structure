@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 from typing import Any
 
-from .models import TopicEntry, TopicMatch
+from grounded_stopwords import content_tokens
 
-_WORD = re.compile(r"[a-z0-9]+(?:['-][a-z0-9]+)?", re.I)
+from .models import TopicEntry, TopicMatch
 
 
 def _tokens(text: str) -> set[str]:
-    return {match.group(0).casefold() for match in _WORD.finditer(text)}
+    """Content tokens only — stopwords like ``of`` / ``the`` never score overlap."""
+    return set(content_tokens(text))
 
 
 def _clean_strings(values: Any) -> tuple[str, ...]:
