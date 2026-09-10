@@ -1,4 +1,4 @@
-"""OpenAI Chat Completions provider for structured query extraction."""
+"""OpenAI Chat Completions provider for bounded topic-map extension."""
 
 from __future__ import annotations
 
@@ -7,8 +7,9 @@ import os
 from typing import Any
 
 from .heuristic import normalize_query
-from .models import QueryStructure, StructureError
+from .models import QueryStructure, StructureError, TopicMatch
 from .prompts import RESPONSE_SCHEMA, build_messages
+from .topic_map import TopicMap
 
 DEFAULT_MODEL = "gpt-4o-mini"
 DEFAULT_TIMEOUT = 20.0
@@ -29,22 +30,28 @@ def _clean_strings(values: Any, *, limit: int = 8) -> tuple[str, ...]:
     return tuple(cleaned)
 
 
-def parse_structure_payload(original: str, payload: dict[str, Any], *, model: str) -> QueryStructure:
-    concepts = _clean_strings(payload.get("concepts"))
-    lexical = _clean_strings(payload.get("lexical_phrases"))
-    semantic = payload.get("semantic_query")
-    if not isinstance(semantic, str) or not semantic.strip():
-        raise StructureError("OpenAI response missing semantic_query")
-    semantic_query = " ".join(semantic.split()).strip()[:500]
-    if not concepts:
-        concepts = (semantic_query,)
-    if not lexical:
-        lexical = (semantic_query,)
+def parse_structure_payload(
+    original: str,
+    payload: dict[str, Any],
+    *,
+    model: str,
+    matched_topic_ids: tuple[str, ...] = (),
+) -> QueryStructure:
+    intent = payload.get("intent")
+    if not isinstance(intent, str) or not intent.strip():
+        raise StructureError("OpenAI response missing intent")
+    intent_text = " ".join(intent.split()).strip()[:300]
     return QueryStructure(
         original=original,
-        concepts=concepts,
-        lexical_phrases=lexical,
-        semantic_query=semantic_query,
+        intent=intent_text,
+        emphasize=_clean_strings(payload.get("emphasize"), limit=8),
+        de_emphasize=_clean_strings(payload.get("de_emphasize"), limit=8),
+        historical_expressions=_clean_strings(
+            payload.get("historical_expressions"), limit=8
+        ),
+        contrasts=_clean_strings(payload.get("contrasts"), limit=8),
+        added_concepts=_clean_strings(payload.get("added_concepts"), limit=4),
+        matched_topic_ids=matched_topic_ids,
         source="openai",
         model=model,
     )
@@ -63,41 +70,58 @@ class OpenAIStructurer:
         base_url: str = "https://api.openai.com/v1",
         timeout: float = DEFAULT_TIMEOUT,
         http_client: Any | None = None,
+        match_limit: int = 5,
     ) -> None:
         self.api_key = api_key if api_key is not None else os.environ.get("OPENAI_API_KEY", "")
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self._http_client = http_client
+        self.match_limit = max(1, match_limit)
 
     def available(self) -> bool:
         return bool(self.api_key)
 
-    def structure(self, query: str, *, domain_context: str = "") -> QueryStructure:
+    def structure(
+        self,
+        query: str,
+        *,
+        topic_map: TopicMap | None = None,
+        matches: tuple[TopicMatch, ...] | None = None,
+        domain_context: str = "",
+    ) -> QueryStructure:
         original = normalize_query(query)
+        resolved_map = topic_map or TopicMap()
+        resolved_matches = matches
+        if resolved_matches is None:
+            resolved_matches = resolved_map.match(original, limit=self.match_limit)
+        topic_ids = tuple(match.entry.id for match in resolved_matches)
+
         if not original:
             return QueryStructure(
                 original="",
-                concepts=(),
-                lexical_phrases=(),
-                semantic_query="",
+                intent="",
+                emphasize=(),
+                de_emphasize=(),
+                historical_expressions=(),
+                contrasts=(),
+                added_concepts=(),
+                matched_topic_ids=(),
                 source=self.source,
                 model=self.model,
             )
         if not self.api_key:
             raise StructureError("OPENAI_API_KEY is not set")
 
-        try:
-            import httpx
-        except ImportError as exc:  # pragma: no cover - optional extra
-            raise StructureError(
-                "Install grounded-query-structure[openai] to use OpenAIStructurer"
-            ) from exc
-
         body = {
             "model": self.model,
             "temperature": 0,
-            "messages": build_messages(original, domain_context=domain_context),
+            "messages": build_messages(
+                original,
+                topic_map=resolved_map,
+                matches=resolved_matches,
+                domain_context=domain_context,
+            ),
             "response_format": {
                 "type": "json_schema",
                 "json_schema": {
@@ -114,6 +138,12 @@ class OpenAIStructurer:
         client = self._http_client
         owns_client = client is None
         if owns_client:
+            try:
+                import httpx
+            except ImportError as exc:  # pragma: no cover - optional extra
+                raise StructureError(
+                    "Install grounded-query-structure[openai] to use OpenAIStructurer"
+                ) from exc
             client = httpx.Client(timeout=self.timeout)
         try:
             response = client.post(
@@ -136,4 +166,9 @@ class OpenAIStructurer:
             raise StructureError("OpenAI response was not valid structured JSON") from exc
         if not isinstance(payload, dict):
             raise StructureError("OpenAI response JSON must be an object")
-        return parse_structure_payload(original, payload, model=self.model)
+        return parse_structure_payload(
+            original,
+            payload,
+            model=self.model,
+            matched_topic_ids=topic_ids,
+        )

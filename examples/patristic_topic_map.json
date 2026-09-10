@@ -1,0 +1,54 @@
+{
+  "entries": [
+    {
+      "id": "cult_of_saints",
+      "labels": [
+        "cult of the saints",
+        "veneration of the saints",
+        "veneration of martyrs",
+        "cultus sanctorum"
+      ],
+      "core_concepts": [
+        "veneration of the martyrs",
+        "relics of the saints",
+        "honor paid to the saints"
+      ],
+      "historical_expressions": [
+        "cultus sanctorum",
+        "honor of the martyrs",
+        "memory of the saints"
+      ],
+      "contrasts": [
+        "latria versus dulia",
+        "worship due to God alone",
+        "idolatry"
+      ],
+      "notes": "Early Christian honor of saints and martyrs, not divine worship."
+    },
+    {
+      "id": "trinity",
+      "labels": [
+        "Trinity",
+        "triune God",
+        "three persons"
+      ],
+      "core_concepts": [
+        "Father",
+        "Son",
+        "Holy Spirit",
+        "one substance"
+      ],
+      "historical_expressions": [
+        "homoousios",
+        "three hypostases",
+        "one ousia"
+      ],
+      "contrasts": [
+        "modalism",
+        "Arianism",
+        "tritheism"
+      ],
+      "notes": "Nicene and post-Nicene articulation of the triune God."
+    }
+  ]
+}
